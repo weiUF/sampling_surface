@@ -1,4 +1,4 @@
-module constants
+module mod_constant
   implicit none
   
   integer,parameter:: SPREAL = selected_real_kind(6,37)

@@ -1,5 +1,12 @@
 # compiled code #
 ###################
-
 *.o
 *.mod
+
+# mesh files #
+##################
+*.cgns
+
+# output file #
+##################
+*.out

@@ -4,20 +4,26 @@ FC = f95
 
 src = $(wildcard *.F90)
 obj = $(src:.F90=.o)
+dep = $(obj:.o=.d)
 
 DEBUG = -g
-CPPFLAG = -I/root/temp/CGNS-3.3.1/src
-LDFLAG = -L/root/temp/CGNS-3.3.1/src/lib
+CPPFLAG = -I/root/CGNS/src
+LDFLAG = -L/root/CGNS/src/lib
 LIB = -lcgns
+
+ALL:gensurf
+
+
+%.o:%.F90
+	$(FC) -c $< -o $@ $(CPPFLAG) $(DEBUG)
 
 gensurf: $(obj)
 	$(FC) -o $@ $^ $(LDFLAG) $(LIB)
 
-%.o:%.F90
-	$(FC) -c $^ -o $@ $(CPPFLAG) $(DEBUG)
+.PHONY: ALL
 
 .PHONY: clean
 
 clean:
-	rm -f $(obj) gensurf
+	rm -f $(obj) gensurf *.mod
 
