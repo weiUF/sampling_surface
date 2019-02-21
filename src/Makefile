@@ -18,7 +18,7 @@ ALL:gensurf
 	$(FC) -c $< -o $@ $(CPPFLAG) $(DEBUG)
 
 gensurf: $(obj)
-	$(FC) -o $@ $^ $(LDFLAG) $(LIB)
+	$(FC) -o $@ $^ $(LDFLAG) $(LIB) $(DEBUG)
 
 .PHONY: ALL
 
