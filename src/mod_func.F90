@@ -14,21 +14,26 @@ contains
     deg2rad = PI * deg / 180.0_RFREAL
   end function deg2rad
   
-  subroutine makeline(origin,dist,n,xyz)
+  subroutine makeline(origin,dist,n,xyz,conn)
     ! make line for sampling hydrodynamic quantities for source calculation
     ! arguments
     real(RFREAL),intent(in)::origin(3),dist(3)
     integer,intent(in)::n
     real(RFREAL),allocatable,intent(out)::xyz(:,:)
+    integer,allocatable,intent(out):: conn(:,:)
     ! local variables
     integer:: i
 
     allocate(xyz(3,n))
+    allocate(conn(5,n-1))
     
     do i = 1,n
       xyz(1,i) = origin(1) + dble(i - 1) / (n - 1) * dist(1)
       xyz(2,i) = origin(2) + dble(i - 1) / (n - 1) * dist(2)
       xyz(3,i) = origin(3) + dble(i - 1) / (n - 1) * dist(3)
+      conn(1,i) = BAR
+      conn(2,i) = i
+      conn(3,i) = i + 1
     end do
 
 
@@ -362,31 +367,36 @@ contains
       End do
     End do
 
-    ! write info to output, write cngs file
-    print *,pointrange(:subfaceno)
-    print * , npts, ncells
-    call write_cgns(xyz(:,:npts),conn(:,:ncells),weight(:ncells),pointrange(:subfaceno),nsurfaces,nendcaps)
-
     ! add sampling points on lines -- lipline and centerline
     ! CenterLine
     open(102,file='CL_LL.out')
     write(102,'(ai8)') '#nlines',size(line,1)
     write(102,'(ai8)') '#pnts', NptsperLine
-    call makeline(line(1,1,:),line(1,2,:),NptsperLine,xyz_temp)
+    call makeline(line(1,1,:),line(1,2,:),NptsperLine,xyz_temp,conn_temp)
+    call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
     xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
     npts = npts + NptsperLine
     write(102,'(2i8)') npts - NptsperLine + 1, npts
     deallocate(xyz_temp)
+    deallocate(conn_temp)
     print *, 'Centerline: ', NptsperLine, 'pnts, origin: ', line(1,1,:)
     ! LipLine
     write(102,'(ai8)') '#pnts', NptsperLine
-    call makeline(line(2,1,:),line(2,2,:),NptsperLine,xyz_temp)
+    call makeline(line(2,1,:),line(2,2,:),NptsperLine,xyz_temp,conn_temp)
+    call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
     xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
     npts = npts + NptsperLine
     write(102,'(2i8)') npts - NptsperLine + 1, npts
     deallocate(xyz_temp)
+    deallocate(conn_temp)
     close(102)
     print *, 'Lipline: ', NptsperLine, 'pnts, origin: ', line(2,1,:)
+
+    ! write info to output, write cngs file
+    print *,pointrange(:subfaceno)
+    print * , npts, ncells
+    call write_cgns(xyz(:,:npts),conn(:,:ncells),weight(:ncells),pointrange(:subfaceno),nsurfaces,nendcaps)
+
     
     call write_debug(xyz(:,:npts),conn(:,:ncells))
   
@@ -473,8 +483,14 @@ contains
           call cg_section_write_f(index_file,index_base,index_zone,            &
             trim(sectname),TRI_3,nelem_start,nelem_end,nbdyelem,               &
             jelem(1:3,:),index_section,ier)
+        case(BAR)
+          ! write BAR_2 element connectivity
+          write(sectname,'(''BAR'',i4)') ct
+          call cg_section_write_f(index_file,index_base,index_zone,            &
+            trim(sectname),BAR_2,nelem_start,nelem_end,nbdyelem,               &
+            jelem(1:2,:),index_section,ier)
         case default
-          write(*,*) "element type error, element type", conn(1,i), "not found"
+          write(*,*) "element type error, element type", conn(1,i-1), "not found"
           stop
         end select
         deallocate(jelem)
@@ -548,8 +564,8 @@ contains
       enddo
 
       ! temp
-      print *, 'i:',i
-      print * , 'npts:',npts, 'ct:', ct
+      !print *, 'i:',i
+      !print * , 'npts:',npts, 'ct:', ct
       !print *, bcpointlist(:npts)
       ! end temp
 
