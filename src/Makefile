@@ -1,29 +1,48 @@
-##Makefile 
+# Find all source files, create a list of corresponding object files
+SRCS=$(wildcard *.F90)
+OBJS=$(patsubst %.F90,%.o,$(SRCS))
 
-FC = f95
+# Ditto for mods (They will be in both lists)
+MODS=$(wildcard mod*.F90)
+MOD_OBJS=$(patsubst %.F90,%.o,$(MODS))
 
-src = $(wildcard *.F90)
-obj = $(src:.F90=.o)
-dep = $(obj:.o=.d)
+# Compiler/Linker settings
+FC = ifort
+FLFLAGS = -g -L/home/wei.wang/CGNS-3.3.1/build/install/lib -lcgns
+FCFLAGS = -g -c -I/home/wei.wang/CGNS-3.3.1/build/install/include
+PROGRAM = gensurf
+PRG_OBJ = $(PROGRAM).o
 
-DEBUG = -g
-CPPFLAG = -I/root/CGNS/src
-LDFLAG = -L/root/CGNS/src/lib
-LIB = -lcgns
+# make without parameters will make first target found.
+default : $(PROGRAM)
 
-ALL:gensurf
+# Compiler steps for all objects
+$(OBJS) : %.o : %.F90
+	$(FC) $(FCFLAGS) -o $@ $<
 
+# Linker
+$(PROGRAM) : $(OBJS)
+	$(FC) $(FLFLAGS) -o $@ $^
 
-%.o:%.F90
-	$(FC) -c $< -o $@ $(CPPFLAG) $(DEBUG)
-
-gensurf: $(obj)
-	$(FC) -o $@ $^ $(LDFLAG) $(LIB) $(DEBUG)
-
-.PHONY: ALL
-
-.PHONY: clean
+# If something doesn't work right, have a 'make debug' to 
+# show what each variable contains.
+debug:
+	@echo "SRCS = $(SRCS)"
+	@echo "OBJS = $(OBJS)"
+	@echo "MODS = $(MODS)"
+	@echo "MOD_OBJS = $(MOD_OBJS)"
+	@echo "PROGRAM = $(PROGRAM)"
+	@echo "PRG_OBJ = $(PRG_OBJ)"
 
 clean:
-	rm -f $(obj) gensurf *.mod
+	rm -rf $(OBJS) $(PROGRAM) $(patsubst %.o,%.mod,$(MOD_OBJS))
 
+.PHONY: debug default clean
+
+# Dependencies
+
+# Main program depends on all modules
+$(PRG_OBJ) : $(MOD_OBJS)
+
+# Blocks and allocations depends on certain mods
+mod_func.o : mod_constant.o

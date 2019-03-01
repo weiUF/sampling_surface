@@ -370,8 +370,8 @@ contains
     ! add sampling points on lines -- lipline and centerline
     ! CenterLine
     open(102,file='CL_LL.out')
-    write(102,'(ai8)') '#nlines',size(line,1)
-    write(102,'(ai8)') '#pnts', NptsperLine
+    write(102,'(a,i8)') '#nlines',size(line,1)
+    write(102,'(a,i8)') '#pnts', NptsperLine
     call makeline(line(1,1,:),line(1,2,:),NptsperLine,xyz_temp,conn_temp)
     call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
     xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
@@ -381,7 +381,7 @@ contains
     deallocate(conn_temp)
     print *, 'Centerline: ', NptsperLine, 'pnts, origin: ', line(1,1,:)
     ! LipLine
-    write(102,'(ai8)') '#pnts', NptsperLine
+    write(102,'(a,i8)') '#pnts', NptsperLine
     call makeline(line(2,1,:),line(2,2,:),NptsperLine,xyz_temp,conn_temp)
     call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
     xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
