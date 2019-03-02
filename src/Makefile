@@ -8,8 +8,8 @@ MOD_OBJS=$(patsubst %.F90,%.o,$(MODS))
 
 # Compiler/Linker settings
 FC = ifort
-FLFLAGS = -g -L/home/wei.wang/CGNS-3.3.1/build/install/lib -lcgns
-FCFLAGS = -g -c -I/home/wei.wang/CGNS-3.3.1/build/install/include
+FLFLAGS = -g -L/home/wei.wang/CGNS-3.3.1/build/install/lib -lcgns 
+FCFLAGS = -g -c -I/home/wei.wang/CGNS-3.3.1/build/install/include 
 PROGRAM = gensurf
 PRG_OBJ = $(PROGRAM).o
 

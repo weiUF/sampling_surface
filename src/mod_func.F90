@@ -416,9 +416,10 @@ contains
     integer(cgsize_t) isize(1,3)
     integer(cgsize_t),allocatable::jelem(:,:),bcpointlist(:)
     integer(cgsize_t) nelem_start,nelem_end
-    integer index_file,index_section,ielem_no,ier,iset,iphysdim,icelldim,   &
-      index_base,index_zone,index_coord,index_bc,nbdyelem,index_flow,       &
+    integer F,index_section,ielem_no,ier,iset,iphysdim,icelldim,   &
+      B,Z,index_coord,index_bc,nbdyelem,index_flow,       &
       npts,ncells,dimconn,i,j,k,ct,nbcpts
+    real(RFREAL),allocatable::face_center(:,:),face_area(:),face_normal(:,:)
     character*32 basename,zonename,sectname,error_msg
 
     npts = size(xyz,2)
@@ -431,13 +432,13 @@ contains
     !   WRITE X, Y, Z GRID POINTS TO CGNS FILE
     write(6,'('' start writing cgns file grid.cgns'')')
     !   open CGNS file for write
-    call cg_open_f('grid.cgns',CG_MODE_WRITE,index_file,ier)
+    call cg_open_f('grid.cgns',CG_MODE_WRITE,F,ier)
     if (ier .ne. CG_OK) call cg_error_exit_f
     !   create base (user can give any name)
     basename='Base'
     icelldim=2
     iphysdim=2
-    call cg_base_write_f(index_file,basename,icelldim,iphysdim,index_base,ier)
+    call cg_base_write_f(F,basename,icelldim,iphysdim,B,ier)
     !   define zone name (user can give any name)
     zonename = 'Zone  1'
     !   vertex size
@@ -447,14 +448,14 @@ contains
     !   boundary vertex size (zero if elements not sorted)
     isize(1,3)=0
     !   create zone
-    call cg_zone_write_f(index_file,index_base,zonename,isize,               &
-      Unstructured,index_zone,ier)
+    call cg_zone_write_f(F,B,zonename,isize,               &
+      Unstructured,Z,ier)
     !   write grid coordinates (user must use SIDS-standard names here)
-    call cg_coord_write_f(index_file,index_base,index_zone,RealDouble,       &
+    call cg_coord_write_f(F,B,Z,RealDouble,       &
       'CoordinateX',xyz(1,:),index_coord,ier)
-    call cg_coord_write_f(index_file,index_base,index_zone,RealDouble,       &
+    call cg_coord_write_f(F,B,Z,RealDouble,       &
       'CoordinateY',xyz(2,:),index_coord,ier)
-    call cg_coord_write_f(index_file,index_base,index_zone,RealDouble,       &
+    call cg_coord_write_f(F,B,Z,RealDouble,       &
       'CoordinateZ',xyz(3,:),index_coord,ier)
 
     !  unsorted boundary elements
@@ -474,19 +475,19 @@ contains
         case(QUA)
           !  write QUAD_4 element connectivity
           write(sectname,'(''Quad'',i4)') ct
-          call cg_section_write_f(index_file,index_base,index_zone,            &
+          call cg_section_write_f(F,B,Z,            &
             trim(sectname),QUAD_4,nelem_start,nelem_end,nbdyelem,              &
             jelem(1:4,:),index_section,ier)
         case(TRI)
           ! write TRI_3 element connectivity
           write(sectname,'(''Tri'',i4)') ct
-          call cg_section_write_f(index_file,index_base,index_zone,            &
+          call cg_section_write_f(F,B,Z,            &
             trim(sectname),TRI_3,nelem_start,nelem_end,nbdyelem,               &
             jelem(1:3,:),index_section,ier)
         case(BAR)
           ! write BAR_2 element connectivity
           write(sectname,'(''BAR'',i4)') ct
-          call cg_section_write_f(index_file,index_base,index_zone,            &
+          call cg_section_write_f(F,B,Z,            &
             trim(sectname),BAR_2,nelem_start,nelem_end,nbdyelem,               &
             jelem(1:2,:),index_section,ier)
         case default
@@ -501,16 +502,31 @@ contains
       End if
     enddo
 
+    ! calculate face center, face area and face normal
+    call cal_face_center_area(xyz,conn,face_center,face_area,face_normal)
+
+    ! debug
+    ! print*,'area', face_area(1)
+    ! print*, 'norm', face_normal(:,1)
+
     ! write weight function array
-    !call cg_goto_f(index_file,index_base,ier,'Zone_t',index_zone,'end')
-    !call cg_user_data_write_f('weights',ier)
-    !call cg_goto_f(index_file,index_base,ier,'Zone_t',index_zone,'weights',0,'end')
+    call cg_goto_f(F,B,ier,'Zone_t',Z,'end')
+    call cg_user_data_write_f('User Data',ier)
+    call cg_gorel_f(F,ier,'User Data',0,'end')
     !call cg_gridlocation_write_f(CellCenter, ier)
     !call cg_ptset_write_f(PointRange,2,(/1,ncells/),ier)
-    !call cg_array_write_f('weight',RealDouble,1,ncells,weight,ier)
+    call cg_array_write_f('Weight',RealDouble,1,ncells,weight,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+    call cg_array_write_f('Center',RealDouble,2,(/3,ncells/),face_center,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+    call cg_array_write_f('Area',RealDouble,1,ncells,face_area,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+    call cg_array_write_f('Normal',RealDouble,2,(/3,ncells/),face_normal,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
 
-    call cg_sol_write_f(index_file,index_base,index_zone,'face weight',CellCenter,index_flow,ier)
-    call cg_field_write_f(index_file,index_base,index_zone,1,RealDouble,'weight',weight,index_flow,ier)
+    ! Not to write 'face weight' as solution but as user_data instead
+    !call cg_sol_write_f(F,B,Z,'face weight',CellCenter,index_flow,ier)
+    !call cg_field_write_f(F,B,Z,1,RealDouble,'weight',weight,index_flow,ier)
 
     ! write BC for each FWH surfaces
 
@@ -534,8 +550,8 @@ contains
         npts = npts + nelem_end - nelem_start + 1
         
         ! temp
-        print *, 'i:',i,'j:',j
-        print * , 'start:',nelem_start,'end:',nelem_end
+        ! print *, 'i:',i,'j:',j
+        ! print * , 'start:',nelem_start,'end:',nelem_end
         ! end temp
 
         do k = nelem_start,nelem_end
@@ -553,8 +569,8 @@ contains
         npts = npts + nelem_end - nelem_start + 1
 
         ! temp
-        print *, 'i:',i,'j:',j
-        print * , 'start:',nelem_start,'end:',nelem_end
+        ! print *, 'i:',i,'j:',j
+        ! print * , 'start:',nelem_start,'end:',nelem_end
         ! end temp
 
         do k = nelem_start,nelem_end
@@ -569,9 +585,9 @@ contains
       !print *, bcpointlist(:npts)
       ! end temp
 
-      call cg_boco_write_f(index_file,index_base,index_zone,trim(sectname),  &
+      call cg_boco_write_f(F,B,Z,trim(sectname),  &
         BCTypeNull,PointList,npts,bcpointlist(:npts),index_bc,ier)
-      call cg_goto_f(index_file,index_base,ier,'Zone_t',1,                   &
+      call cg_goto_f(F,B,ier,'Zone_t',1,                   &
         'ZoneBC_t',1,'BC_t',index_bc,'end')
       !call cg_gridlocation_write_f(FaceCenter,ier)
       ! ? here write FaceCenter returns error ier=1
@@ -587,12 +603,65 @@ contains
 
 
     !   close CGNS file
-    call cg_close_f(index_file,ier)
+    call cg_close_f(F,ier)
     write(6,'('' Successfully wrote unstructured grid to file'',             &
       '' grid.cgns'')')
   end subroutine  write_cgns
 
 
+  ! calculate face area, normal, center from xyz of vertex and connectivities
+  subroutine cal_face_center_area(xyz,conn,center,area,normal)
+    ! arguments
+    real(RFREAL),intent(in)::xyz(:,:)
+    integer,intent(in)::conn(:,:)
+    real(RFREAL),allocatable,intent(out)::center(:,:),area(:),normal(:,:)
+    ! local varaibles
+    integer::i,j,n
+    real(RFREAL)::v1(3),v2(3),temp(3),temp_mag
+    ! start
+
+    n = size(conn,2)  ! ncells
+    allocate(center(3,n))
+    allocate(area(n))
+    allocate(normal(3,n))
+
+    ! loop over all face to find center, area and normal
+    do i = 1,n
+      ! two vectors along two edge of the face
+      if (conn(1,i) .ne. BAR) then
+        v1 = xyz(:,conn(3,i)) - xyz(:,conn(2,i))
+        v2 = xyz(:,conn(4,i)) - xyz(:,conn(3,i))
+        ! cross product - its mag is area of quad, direction is face normal
+        temp(1) = v1(2) * v2(3) - v1(3) * v2(2)
+        temp(2) = v1(3) * v2(1) - v1(1) * v2(3)
+        temp(3) = v1(1) * v2(2) - v1(2) * v2(1) 
+        temp_mag =  (temp(1) ** 2 + temp(2) ** 2 + temp(3) ** 2) ** 0.5
+        normal(:,i) = temp / temp_mag
+      end if
+      ! 1st column indicate the shape of face
+      select case(conn(1,i))
+      case(QUA)
+        ! Quad face
+        area(i) = temp_mag 
+        center(:,i) = sum(xyz(:,conn(2:5,i)),2) / 4
+      case(TRI)
+        ! Triangle face
+        area(i) = temp_mag / 2 
+        center(:,i) = sum(xyz(:,conn(2:4,i)),2) / 3
+      case(BAR)
+        ! line segment -- area and normal are 0
+        area(i) = 0
+        normal(:,i) = 0
+        center(:,i) = sum(xyz(:,conn(2:3,i)),2) / 2
+      case default
+        stop("wrong element type. [subroutine cal_face_center_area]")
+      end select
+    end do
+
+  end subroutine cal_face_center_area
+
+
+  ! write debug output
   subroutine write_debug(xyz,conn)
     ! arguments 
     real(RFREAL),intent(in)::xyz(:,:)
