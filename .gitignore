@@ -10,3 +10,7 @@
 # output file #
 ##################
 *.out
+
+# binary file #
+##################
+gensurf
