@@ -432,7 +432,7 @@ contains
     !   WRITE X, Y, Z GRID POINTS TO CGNS FILE
     write(6,'('' start writing cgns file grid.cgns'')')
     !   open CGNS file for write
-    call cg_open_f('grid.cgns',CG_MODE_WRITE,F,ier)
+    call cg_open_f('fwh.cgns',CG_MODE_WRITE,F,ier)
     if (ier .ne. CG_OK) call cg_error_exit_f
     !   create base (user can give any name)
     basename='Base'
@@ -524,6 +524,16 @@ contains
     call cg_array_write_f('Normal',RealDouble,2,(/3,ncells/),face_normal,ier)
     IF (ier .NE. CG_OK) CALL cg_error_exit_f
 
+    ! create biter and ziter node
+    call cg_biter_write_f(F,B,'TimeIterValues',1,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+    call cg_ziter_write_f(F,B,Z,'ZoneIterativeData',ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+    ! set simulation type as time accuarate
+    call cg_simulation_type_write_f(F,B,TimeAccurate,ier)
+    IF (ier .NE. CG_OK) CALL cg_error_exit_f
+
+
     ! Not to write 'face weight' as solution but as user_data instead
     !call cg_sol_write_f(F,B,Z,'face weight',CellCenter,index_flow,ier)
     !call cg_field_write_f(F,B,Z,1,RealDouble,'weight',weight,index_flow,ier)
@@ -605,7 +615,7 @@ contains
     !   close CGNS file
     call cg_close_f(F,ier)
     write(6,'('' Successfully wrote unstructured grid to file'',             &
-      '' grid.cgns'')')
+      '' fwh.cgns'')')
   end subroutine  write_cgns
 
 
