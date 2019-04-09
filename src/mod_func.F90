@@ -303,7 +303,7 @@ contains
     
     ! arguments
     real(RFREAL),intent(in)::r(:),x(:),ang,line(:,:,:)
-    integer,intent(in)::nx,nr1,nr2,ntheta,NptsperLine
+    integer,intent(in)::nx,nr1,nr2,ntheta,NptsperLine(:)
     ! local variables 
     !real(RFREAL),allocatable::r2(:,:)
     integer,parameter::maxpts = 500000
@@ -368,37 +368,20 @@ contains
     End do
 
     ! add sampling points on lines -- lipline and centerline
-    ! CenterLine
-    open(102,file='CL_LL.out')
-    write(102,'(a,i8)') '#nlines',size(line,1)
-    write(102,'(a,i8)') '#pnts', NptsperLine
-    call makeline(line(1,1,:),line(1,2,:),NptsperLine,xyz_temp,conn_temp)
-    call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
-    xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
-    npts = npts + NptsperLine
-    write(102,'(2i8)') npts - NptsperLine + 1, npts
-    deallocate(xyz_temp)
-    deallocate(conn_temp)
-    print *, 'Centerline: ', NptsperLine, 'pnts, origin: ', line(1,1,:)
-    ! LipLine
-    write(102,'(a,i8)') '#pnts', NptsperLine
-    call makeline(line(2,1,:),line(2,2,:),NptsperLine,xyz_temp,conn_temp)
-    call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
-    xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
-    npts = npts + NptsperLine
-    write(102,'(2i8)') npts - NptsperLine + 1, npts
-    deallocate(xyz_temp)
-    deallocate(conn_temp)
-    close(102)
-    print *, 'Lipline: ', NptsperLine, 'pnts, origin: ', line(2,1,:)
-
-    ! write info to output, write cngs file
-    print *,pointrange(:subfaceno)
-    print * , npts, ncells
+    do i=1,size(line,1)
+      call makeline(line(i,1,:),line(i,2,:),NptsperLine(i),xyz_temp,conn_temp)
+      call fillin_array(xyz,conn,xyz_temp,conn_temp,npts,ncells,weight,0._RFREAL,pointrange,subfaceno)
+      xyz(:,npts + 1: npts + size(xyz_temp,2)) = xyz_temp
+      npts = npts + NptsperLine(i)
+      deallocate(xyz_temp)
+      deallocate(conn_temp)
+      ! print *, 'Line ',i ,":", NptsperLine(i), 'pnts, origin: ', line(i,1,:)
+      ! print *,pointrange(:subfaceno)
+      ! print * , npts, ncells
+    end do
+    ! write cngs file
     call write_cgns(xyz(:,:npts),conn(:,:ncells),weight(:ncells),pointrange(:subfaceno),nsurfaces,nendcaps)
-
-    
-    call write_debug(xyz(:,:npts),conn(:,:ncells))
+    ! call write_debug(xyz(:,:npts),conn(:,:ncells))
   
   end subroutine enclose_surface
 
@@ -418,7 +401,7 @@ contains
     integer(cgsize_t) nelem_start,nelem_end
     integer F,index_section,ielem_no,ier,iset,iphysdim,icelldim,   &
       B,Z,index_coord,index_bc,nbdyelem,index_flow,       &
-      npts,ncells,dimconn,i,j,k,ct,nbcpts
+      npts,ncells,dimconn,i,j,k,ct,nbcptsi,iline
     real(RFREAL),allocatable::face_center(:,:),face_area(:),face_normal(:,:)
     character*32 basename,zonename,sectname,error_msg
 
@@ -610,6 +593,31 @@ contains
       ! end temp
       deallocate(bcpointlist)
     enddo
+
+    ! write line info to BCs
+    iline = 0
+    do i = nsurfaces * (2 * nendcaps + 1)+1,size(pointrange_in)
+      iline = iline + 1
+      write(sectname,'(''SampleLine'',i4)') iline
+      ct = 0
+      nelem_start = pointrange_in(i-1) + 1
+      nelem_end = pointrange_in(i)
+      npts = nelem_end - nelem_start + 1
+      allocate(bcpointlist(npts))
+
+      do k = nelem_start,nelem_end
+        ct = ct + 1
+        bcpointlist(ct) = k
+      enddo  ! k
+
+      call cg_boco_write_f(F,B,Z,trim(sectname),  &
+        BCTypeNull,PointList,npts,bcpointlist,index_bc,ier)
+      call cg_goto_f(F,B,ier,'Zone_t',1,                   &
+        'ZoneBC_t',1,'BC_t',index_bc,'end')
+      call cg_gridlocation_write_f(CellCenter,ier)
+
+      deallocate(bcpointlist)
+    end do  ! i
 
 
     !   close CGNS file

@@ -12,8 +12,8 @@ Program main
   real(RFREAL),allocatable::xyz(:,:),origin(:),sect(:)
   integer,allocatable::conn(:,:)
 
-  real(RFREAL) r(4),x(6),ang,line(2,2,3)
-  integer nx,nr1,nr2,ntheta,NptsperLine
+  real(RFREAL) r(4),x(6),ang,line(9,2,3)
+  integer nx,nr1,nr2,ntheta,NptsperLine(9)
 
 
   r = (/0.0275,0.0508, 0.1016, 0.1524/)
@@ -37,9 +37,23 @@ Program main
   ! centerline and Lipline
   line(1,1,:) = (/0.0, 0.0, 0.0/)     ! CL: origin
   line(1,2,:) = (/1.0, 0.0, 0.0/)     ! CL: dx,dy,dz
-  line(2,1,:) = (/0.0, 0.0254, 0.0/)  ! LL: origin
-  line(2,2,:) = (/1.0, 0.0, 0.0/)     ! LL: dx,dy,dz
-  NptsperLine =  500  ! Npts per sampling line
+  line(2,1,:) = (/0.0, 0.0254, 0.0/)  ! LL(+y): origin
+  line(2,2,:) = (/1.0, 0.0, 0.0/)     ! LL(+y): dx,dy,dz
+  line(3,1,:) = (/0.0, 0.0, 0.0254/)  ! LL(+z) 
+  line(3,2,:) = (/1.0, 0.0, 0.0/)     
+  line(4,1,:) = (/0.0, -0.0254, 0.0/) ! LL(-y)
+  line(4,2,:) = (/1.0, 0.0, 0.0/)     
+  line(5,1,:) = (/0.0, 0.0, -0.0254/) ! LL(-z)
+  line(5,2,:) = (/1.0, 0.0, 0.0/)     
+  line(6,1,:) = (/0.254, 0.0, 0.0/) ! Lr(x=5D)
+  line(6,2,:) = (/0.0, 0.254, 0.0/)     
+  line(7,1,:) = (/0.508, 0.0, 0.0/) ! Lr(x=10D)
+  line(7,2,:) = (/0.0, 0.254, 0.0/)     
+  line(8,1,:) = (/0.762, 0.0, 0.0/) ! Lr(x=15D)
+  line(8,2,:) = (/0.0, 0.254, 0.0/)     
+  line(9,1,:) = (/1.016, 0.0, 0.0/) ! Lr(x=20D)
+  line(9,2,:) = (/0.0, 0.254, 0.0/)     
+  NptsperLine =  (/501,501,501,501,501,101,101,101,101/)  ! Npts per sampling line
   
   call enclose_surface(r,x,ang,nx,nr1,nr2,ntheta,line,NptsperLine)
  
